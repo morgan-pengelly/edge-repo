@@ -1,0 +1,46 @@
+#!/bin/bash
+
+PATH="/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
+MYDIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)"
+APPDIR="${MYDIR%/*}"
+BASEDIR="${APPDIR%/*}"
+APPNAME="${APPDIR##*/}"
+DOCKER_NAME="edge-$APPNAME"
+PRGNAME="${0##*/}"
+LOGFILE="$BASEDIR/share/log/docker-watchdog.log"
+
+LogIt()
+{
+  echo "$(date '+%F %T') - $PRGNAME: $*" >> $LOGFILE
+}
+
+trap "LogIt exiting watchdog." EXIT
+LogIt "starting watchdog"
+
+while :
+do
+  #if docker ps --format '{{.Names}}' --filter "name=${DOCKER_NAME}" | grep -q "^${DOCKER_NAME}$"
+  if netstat -ltn | grep -q 554
+  then
+    TRY=1
+    RESULT=0
+    while [ $TRY -lt 4 ]
+    do
+      2>/dev/null wget -O - -T 3 -t 2 localhost:8080 | \
+        dd of=/dev/null count=20  |& grep -q "^0+0 records in"
+      RESULT=$?
+      [ $RESULT -ne 0 ] && break
+      let TRY=$TRY+1
+      sleep 2
+    done
+    if [ $RESULT -eq 0 ] 
+    then
+      LogIt "GStream test failed. Restarting $DOCKER_NAME." >> "$LOGFILE"
+      bash $APPDIR/bin/run.sh -d
+      sleep 30
+    fi
+  fi
+  sleep 30
+done
+
+

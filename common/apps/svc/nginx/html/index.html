@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="css/spectre.min.css">
+  <link rel="stylesheet" href="css/spectre-exp.min.css">
+  <link rel="stylesheet" href="css/spectre-icons.min.css">
+</head>
+
+<body style="text-align:center; background:black;">
+
+  <h2 style="color:gray">Anti-Collision System Control Panel</h2>
+
+  <div class="container">
+    <div>
+      <video autoplay muted>
+        <source src="/video" type="video/webm"/>
+        Your browser does not support the video tag.
+      </video>
+    </div>
+    <div>
+      <form id="form1" method="POST">
+        <button class="btn btn-success btn-lg" type="submit" formaction="/conveyor/start">Start Conveyor</button>&nbsp;&nbsp;
+        <button class="btn btn-error btn-lg" type="submit" formaction="/conveyor/stop">Stop Conveyor</button>
+        <br><br>
+        <button class="btn btn-primary btn-lg" type="submit" formaction="/alarm/start">Test Alarm</button>&nbsp;&nbsp;
+        <button class="btn btn-primary btn-lg" type="submit" formaction="/alarm/stop">Stop Alarm</button>
+      </form>
+    </div>
+
+  </div>
+</body>
+<script>
+
+
+  document.forms['form1'].addEventListener('submit', (event) => {
+    event.preventDefault();
+    let formAction = document.activeElement.getAttribute("formaction");
+    let buttonText = document.activeElement.textContent || document.activeElement.innerText; 
+    let alertTitle = buttonText.toUpperCase();
+    fetch(formAction, {
+        method: 'POST',
+    }).then((resp) => {
+        return resp.json();
+    }).then((respJson) => {
+	message = respJson.data;
+        alert("\n" + alertTitle + "\n" + message.charAt(0).toUpperCase() + message.slice(1));
+    }).catch((error) => {
+        alert("\n" + alertTitle + "\nCommunication error.");
+    });
+});
+
+</script>
+</html>

@@ -1,0 +1,112 @@
+---
+camsys:
+
+    # Number of cameras
+    NO_OF_CAMERAS: 6
+
+    # Pixels to inches mapping
+    REFERENCE_POINT_MATRIX:
+        cam1:
+            DEFAULT: 57
+            LEFT_THRESHOLD: [0 , 250]
+            LEFT_PIXEL: 12
+            CENTER_THRESHOLD: [250 , 800]
+            CENTER_PIXEL: 57
+            RIGHT_THRESHOLD: [800 , 1280]
+            RIGHT_PIXEL: 12
+        cam2:
+            DEFAULT: 62
+            LEFT_THRESHOLD: [0 , 250]
+            LEFT_PIXEL: 12
+            CENTER_THRESHOLD: [250 , 1000]
+            CENTER_PIXEL: 62
+            RIGHT_THRESHOLD: [1000 , 1280]
+            RIGHT_PIXEL: 12
+        cam3:
+            DEFAULT: 54
+            LEFT_THRESHOLD: [0 , 250]
+            LEFT_PIXEL: 12
+            CENTER_THRESHOLD: [250 , 1000]
+            CENTER_PIXEL: 54
+            RIGHT_THRESHOLD: [1000 , 1280]
+            RIGHT_PIXEL: 12
+        cam4:
+            DEFAULT: 62
+            LEFT_THRESHOLD: [0 , 250]
+            LEFT_PIXEL: 12
+            CENTER_THRESHOLD: [200 , 1000]
+            CENTER_PIXEL: 62
+            RIGHT_THRESHOLD: [1000 , 1280]
+            RIGHT_PIXEL: 12
+        cam5:
+            DEFAULT: 30
+            LEFT_THRESHOLD: [0 , 125]
+            LEFT_PIXEL: 6
+            CENTER_THRESHOLD: [125 , 500]
+            CENTER_PIXEL: 30
+            RIGHT_THRESHOLD: [500 , 640]
+            RIGHT_PIXEL: 6
+        cam6:
+            DEFAULT: 60
+            LEFT_THRESHOLD: [0 , 250]
+            LEFT_PIXEL: 12
+            CENTER_THRESHOLD: [250 , 1000]
+            CENTER_PIXEL: 60
+            RIGHT_THRESHOLD: [1000 , 1280]
+            RIGHT_PIXEL: 12
+
+    # List of event states
+    valid_camera_states:
+        N: No problem detected
+        A: Distance alert
+        C: Collision alert
+        P: Person outside the car
+        S: Car stopped at the end of tunnel
+        U: Unknown state
+        
+
+    # List of states that stop the conveyor
+    conveyor_stop_states: [C, P, S]
+
+    # List of states that trigger the alarm
+    carwash_alarm_states: [A, P, S]
+
+    # Minimum distance(inches) to trigger the "A" event
+    # Default: 18
+    D_min_distance: 18
+
+    # Minimum distance(inches) to trigger the "C" event
+    # Default: 12
+    C_min_distance: 12
+
+    # Number of frames to consider to send an event
+    # Default: 20
+    NO_OF_DETECTION_FRAMES: 20
+
+    # Number of frames to check with no detection before sending N status
+    # Default: 80
+    NO_DETECTION_FRAMES_COUNT: 80
+
+    # Camsys Keepalive interval in seconds
+    # Default: 60
+    keepalive_interval: 60
+
+    # Camsys minimum weighted score
+    # Default: 10
+    MIN_WEIGHT_SCORE: 10
+
+    
+    SUPRESSION_ZONE:
+        cam1:
+            pixel_from1: 900
+            pixel_to1: 1280
+        cam4:
+            pixel_from1: 50
+            pixel_to1: 1280
+
+    VEHICLE_DETECTION_IGNORE:
+        SUV:
+            original_box_size: 900
+            overlapping_box_size_x: 200
+
+

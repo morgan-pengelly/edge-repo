@@ -1,0 +1,5 @@
+BACKGROUND
+person
+car
+frontlight
+backlight

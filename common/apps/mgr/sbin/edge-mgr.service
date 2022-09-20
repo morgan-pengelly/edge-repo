@@ -1,0 +1,14 @@
+[Unit]
+Description=EDGE-MGR daemon
+After=graphical.target
+
+[Service]
+User=root
+Type=idle
+ExecStart=/home/edge/apps/mgr/sbin/edge-mgr startall
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
+

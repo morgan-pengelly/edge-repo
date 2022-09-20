@@ -1,0 +1,14 @@
+#!/bin/bash
+
+while :
+do
+  2>/dev/null wget -O - -T 3 -t 2 localhost:8080 | \
+    dd of=/dev/null count=20  |& grep -q "^0+0 records in"
+  RESULT=$?
+  if [ $RESULT -eq 0 ] 
+  then
+    echo "$(date '+%F %T') - GStream failed"
+    break
+  fi
+  sleep 30
+done

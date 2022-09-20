@@ -1,0 +1,27 @@
+---
+cameras:
+
+    - id: cam1
+      url: rtsp://sonnys:lauderlee2022@10.10.10.200:10554/1
+      description: Cam1
+
+    - id: cam2
+      url: rtsp://sonnys:lauderlee2022@10.10.10.118:12554/1
+      description: Cam2
+
+    - id: cam3
+      url: rtsp://sonnys:lauderlee2022@10.10.10.201:11554/1
+      description: Cam3
+
+    - id: cam4
+      url: rtsp://sonnys:lauderlee2022@10.10.10.119:13554/1
+      description: Cam4
+
+    - id: cam5
+      url: rtsp://sonnys:lauderlee2022@10.10.10.125:14554/1
+      description: Cam5
+
+    - id: cam6
+      url: rtsp://sonnys:lauderlee2022@10.10.10.123:15554/1
+      description: Cam6
+      full_start: True

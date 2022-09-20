@@ -1,0 +1,13 @@
+/home/edge/apps/mgr/log/*.log
+/home/edge/apps/camsys/logs/*.log
+/home/edge/apps/share/log/*.log
+/home/edge/apps/webstream/log/*.log
+{
+    daily
+    missingok
+    rotate 8
+    compress
+    notifempty
+    maxsize 10M
+    copytruncate
+}

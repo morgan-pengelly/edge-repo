@@ -1,0 +1,139 @@
+#!/bin/bash
+
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
+
+MYDIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)"
+APPDIR="${MYDIR%/*}"
+BASEDIR="${APPDIR%/*}"
+EDGEDIR="${BASEDIR%/*}"
+DEPLOYDIR="$EDGEDIR/deployment"
+PRGNAME="${0##*/}"
+LOGFILE="$APPDIR/log/edge-mgr.log"
+
+LogIt()
+{
+  echo "$(date '+%F %T') - $PRGNAME: $CMD: $*" >> $LOGFILE
+}
+
+
+DeployPackage()
+{
+  local PKGNAME="$1"
+  local URL="$2"
+  local RETVAL=1
+  local RSYNCOUT="/tmp/rsync.out.$$"
+
+  [ "$URL" = "-" ] && return $RETVAL
+  install -d -o root -g root -m 700 "$DEPLOYDIR"
+  [ -f "$DEPLOYDIR/$PKGNAME.md5" ] || touch "$DEPLOYDIR/$PKGNAME.md5"
+  PKGFILE="$DEPLOYDIR/$PKGNAME.cpio.gz"
+  rm -rf "$PKGFILE" "$DEPLOYDIR/apps"
+
+  if wget -q -O "$PKGFILE" "$URL"
+  then
+    MD5="$(md5sum "$PKGFILE")"
+    OLDMD5="$(cat "$DEPLOYDIR/$PKGNAME.md5")"
+    LogIt "Processing ${PKGFILE##*/} (${MD5%% *})"
+    if [ "$OLDMD5" = "$MD5" ]
+    then
+      LogIt ">> this package is up to date."
+      rm -f "$PKGFILE"
+      return $RETVAL
+    fi
+    (
+      cd "$DEPLOYDIR"
+      gunzip -c "$PKGFILE" | cpio -idum --quiet
+    )
+    if [ "$DEPLOYDIR/apps" ]
+    then
+      local MGRAPI="apps/mgr/sbin/edge-mgr-api"
+      if rsync -n -avc "$DEPLOYDIR/apps" "$EDGEDIR" | grep -q "$MGRAPI"
+      then
+        LogIt "NOTICE: auto-update is required: proceeding"
+        cp $DEPLOYDIR/$MGRAPI $APPDIR/sbin/
+        exec $APPDIR/sbin/edge-mgr-api DeployPackage "$PKGNAME" "$URL" 
+      fi
+
+      rsync -avc --exclude "$MGRAPI" "$DEPLOYDIR/apps" "$EDGEDIR" | \
+        grep -v "/$" | sed -n 's/^apps/>> apps/p' > "$RSYNCOUT"
+      if [ -s "$RSYNCOUT" ]
+      then
+        LogIt "Updated items:"
+        cat "$RSYNCOUT" >> "$LOGFILE"
+	sed -n 's!^>> \(.*/build/\).*!\1!p' "$RSYNCOUT" | sort -u | \
+          while read APPBUILD
+          do
+            if [ -f "$EDGEDIR/${APPBUILD}build.sh" ]
+            then
+              LogIt "Rebuilding docker from $APPBUILD"
+	      (cd "$EDGEDIR/$APPBUILD" && bash build.sh) 2>&1 >> $LOGFILE
+            fi
+          done
+        RETVAL=0
+      else
+        LogIt ">> no items updated."
+      fi
+      echo "$MD5" > "$DEPLOYDIR/$PKGNAME.md5"
+    else
+      LogIt "ERROR unpacking $PKGFILE."
+    fi
+  else
+    LogIt "ERROR: cannot download $PKGFILE"
+  fi
+  rm -rf "$PKGFILE" "$RSYNCOUT" "$DEPLOYDIR/apps"
+  return $RETVAL
+}
+
+
+StartAll()
+{
+  local ARG1="$1"
+  echo '--------------------------------------------------------' >> $LOGFILE
+  LogIt "Running StartAll"
+  LogIt "Starting edge-services"
+  $BASEDIR/svc/bin/run.sh -d >> $LOGFILE 2>&1
+  if [ "$ARG1" != "FromDeploy" ]
+  then
+    LogIt "Starting edge-gg"
+    $BASEDIR/gg/bin/run.sh -d >> $LOGFILE 2>&1
+  fi
+  LogIt "Starting edge-camsys"
+  $BASEDIR/camsys/bin/run.sh -d >> $LOGFILE 2>&1
+  LogIt "Starting edge-webstream"
+  $BASEDIR/webstream/bin/run.sh -d >> $LOGFILE 2>&1
+  LogIt "End of StartAll"
+}
+
+StopAll()
+{
+  echo '--------------------------------------------------------' >> $LOGFILE
+  LogIt "Running StoptAll"
+  LogIt "Stopping docker edge-gg"
+  docker stop edge-gg >> $LOGFILE 2>&1
+  LogIt "Stopping docker edge-webstream"
+  docker stop edge-webstream >> $LOGFILE 2>&1
+  LogIt "Stopping docker edge-camsys"
+  docker stop edge-camsys >> $LOGFILE 2>&1
+  LogIt "Stopping docker edge-nginx"
+  docker stop edge-nginx >> $LOGFILE 2>&1
+  LogIt "Stopping docker edge-api"
+  docker stop edge-api >> $LOGFILE 2>&1
+  LogIt "Stopping docker edge-redis"
+  docker stop edge-redis >> $LOGFILE 2>&1
+  LogIt "End of StoptAll"
+  LogIt "Exit program"
+}
+
+#-- MAIN --
+CMD="$1"
+shift
+case "$CMD" in
+  DeployPackage) 
+    DeployPackage $*
+    exit $?
+    ;;
+  StartAll) StartAll ;;
+  StartFromDeploy) StartAll "FromDeploy";;
+  StopAll) StopAll ;;
+esac
+

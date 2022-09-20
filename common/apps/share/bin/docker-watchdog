@@ -1,0 +1,47 @@
+#!/bin/bash
+
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
+
+MYDIR="$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)"
+APPDIR="${MYDIR%/*}"
+BASEDIR="${APPDIR%/*}"
+EDGEDIR="${BASEDIR%/*}"
+PRGNAME="${0##*/}"
+LOGFILE="$APPDIR/log/$PRGNAME.log"
+
+LogIt()
+{
+  echo "$(date '+%F %T') - $PRGNAME - $DOCKER_NAME: $*" >> $LOGFILE
+}
+
+Usage() {
+  LogIt "Usage: $PRGNAME docker-name run-script-path [run-script-args]"
+  exit 1
+}
+
+Abort() {
+  LogIt "Abort: $*"
+  exit 2
+}
+
+test -d "$APPDIR/log" || install -d -o edge -g edge -m 2750 "$APPDIR/log"
+
+[ $# -lt 2 ] && Usage
+DOCKER_NAME="$1"
+RUN_SCRIPT="$2"
+shift 2
+RUN_ARGS="$*"
+
+test -f "$RUN_SCRIPT" || Abort "script $RUN_SCRIPT not found."
+
+trap "LogIt exiting watchdog." EXIT
+
+LogIt "starting watchdog."
+while docker ps --format '{{.Names}}' --filter "name=${DOCKER_NAME}" | grep -q "^${DOCKER_NAME}$"
+do
+  sleep 5
+done
+
+LogIt "docker $DOCKER_NAME is not running."
+LogIt "executing: $RUN_SCRIPT $RUN_ARGS"
+eval $RUN_SCRIPT $RUN_ARGS

@@ -1,0 +1,8 @@
+[Unit]
+Description=timer for edge-mgr service
+
+[Timer]
+OnBootSec=1min
+
+[Install]
+WantedBy=timers.target
