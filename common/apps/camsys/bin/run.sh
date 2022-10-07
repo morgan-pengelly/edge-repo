@@ -28,6 +28,7 @@ docker run \
 	-v $APPDIR/tmp:/home/edge/tmp \
 	-v $APPDIR/logs:/home/edge/logs \
 	-v /opt/nvidia/deepstream/deepstream-5.1:/opt/nvidia/deepstream/deepstream-5.1 \
+	-v /run/jtop.sock:/run/jtop.sock \
 	-p 554:554 \
 	--rm \
 	--entrypoint /home/edge/lib/run.sh \

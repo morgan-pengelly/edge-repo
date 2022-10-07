@@ -6,6 +6,7 @@ from deepstream_worker import DeepstreamWorker
 from message_distributor_worker import MessageDistributorWorker
 from capture_worker import CaptureWorker
 from event_manager import EventManager
+from system_manager import SystemManager
 
 # Class handler of the process
 # The carwash process launches the deepstream inference engine thread, the message distributor thread and the camera handler threads
@@ -27,6 +28,7 @@ class CarwashProcess(object):
         self.thread_deepstream = None
         self.thread_distributor = None
         self.thread_event_manager = None
+        self.thread_system_manager = None
         self.thread_cameras = []
         pass
     
@@ -76,11 +78,19 @@ class CarwashProcess(object):
         self.thread_event_manager = EventManager()
         self.thread_event_manager.start()
     
+    #launches system manager thread for monitoring of GPU/CPU load of edge device
+    def launch_system_manager(self):
+        self.thread_system_manager = SystemManager()
+        self.thread_system_manager.start()
+
     # stops all cameras running and all yolo engines running
     def kill_all(self):
         self.logger.info("stopping and joining event manager thread")
         self.thread_event_manager.stop()
         self.thread_event_manager.join()
+        self.logger.info("stopping and joining system manager thread")
+        self.thread_system_manager.stop()
+        self.thread_system_manager.join()
         self.logger.info("stopping and joining capture worker threads")
         for t in self.thread_cameras:
             t.stop()
@@ -101,6 +111,8 @@ class CarwashProcess(object):
         self.launch_camera_handlers()
         # launch the message distributor
         self.launch_message_distributor()
+        #launch system_manager
+        self.launch_system_manager()
         
         start_time = time.time()
         # mantain process alive and report heartbeat

@@ -20,7 +20,8 @@ class CaptureWorker(threading.Thread):
         
         self.queue = queue.Queue()
         self.camera_id_logs = camera_id_logs
-        # original code parameters for distance calculations
+        
+        # Inference Classes
         self.PGIE_CLASS_ID_BACKGROUND = 0
         self.PGIE_CLASS_ID_PERSON = 1
         self.PGIE_CLASS_ID_VEHICLE = 2
@@ -28,6 +29,7 @@ class CaptureWorker(threading.Thread):
         self.PGIE_CLASS_ID_BACKLIGHT = 4
         
         self.NO_OF_CAMERAS = 6
+        self.CAMERAS_DISABLED = {'cam1': False, 'cam2': False, 'cam3': False, 'cam4': False, 'cam5': False, 'cam6': False, }
         self.REFERENCE_POINT_MATRIX = {'cam1': {'DEFAULT': 57, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 57, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}, 'cam2': {'DEFAULT': 62, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 62, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}, 'cam3': {'DEFAULT': 54, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 54, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}, 'cam4': {'DEFAULT': 62, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 62, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}, 'cam5': {'DEFAULT': 30, 'LEFT_THRESHOLD': [0, 100], 'LEFT_PIXEL': 6, 'CENTER_THRESHOLD': [100, 540], 'CENTER_PIXEL': 30, 'RIGHT_THRESHOLD': [540, 640], 'RIGHT_PIXEL': 6}, 'cam6': {'DEFAULT': 60, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 60, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}}
         self.NO_OF_DETECTION_FRAMES = 20
         self.SUPRESSION_ZONE = {}
@@ -43,6 +45,7 @@ class CaptureWorker(threading.Thread):
         self.ROLLING_FRAME = True
         self.ABSOLUTE_DIST = True
         self.printDebug = 0
+        self.camera_disable = False
         
         self.distance_array = {}
         self.distance_array_val = {}
@@ -103,9 +106,12 @@ class CaptureWorker(threading.Thread):
     def set_parameters1(self):
         try:
             
+            #Read in configuration from camsys.yaml and cameras.yaml
             camsys_dict = edge_services.get_camsys_configuration()
             self.cameras_dict = edge_services.get_cameras_configuration()
-            
+
+            #Parse configs
+            self.CAMERAS_DISABLED = camsys_dict["CAMERAS_DISABLED"]
             self.NO_OF_CAMERAS = len(self.cameras_dict)
             self.REFERENCE_POINT_MATRIX = camsys_dict["REFERENCE_POINT_MATRIX"]
             self.SUPRESSION_ZONE = camsys_dict["SUPRESSION_ZONE"]
@@ -117,6 +123,13 @@ class CaptureWorker(threading.Thread):
             self.YELLOW_THRESHOLD_INCHES = int(camsys_dict['D_min_distance'])
             self.MIN_WEIGHT_SCORE = int(camsys_dict['MIN_WEIGHT_SCORE'])
             
+            #Check to see if camera has been disabled in config
+            try:
+                self.SCAMERAS_DISABLED = self.CAMERAS_DISABLED["cam"+str(self.camera_id)]
+            except Exception as e:
+                self.CAMERAS_DISABLED = {}
+
+            #Define all suppresion zones from config    
             try:
                 self.SUPRESSION_ZONE = self.SUPRESSION_ZONE["cam"+str(self.camera_id)]
                 for key, value in self.SUPRESSION_ZONE.items():
@@ -403,9 +416,6 @@ class CaptureWorker(threading.Thread):
         pred_dict = {}
         temp_objs = list()
         if num_rects > 1:
-
-
-
             for i in range(len(frame_meta)):
                 try:
                     if int(frame_meta[i]["class_id"]) == 2:
@@ -420,13 +430,12 @@ class CaptureWorker(threading.Thread):
                         temp_list.append([x1, x2])
                         pred_dict[int(frame_meta[i]["class_id"])] = temp_list
                 except StopIteration:
-
                     break
                 except Exception as e:
                     self.logger.info("Exception in --get_objects_x2x1--: "+ str(e))
+
             self.obj_pos_queue.append(temp_objs)
             if len(pred_dict) > 0:
-
                 for key in pred_dict:
                     # get distance ONLY between "cars"
                     if key !=2:
@@ -494,9 +503,11 @@ class CaptureWorker(threading.Thread):
             self.event_manager_thread.fifo_queue.put((self.camera_id,msg1,msg2,msg_type))
         except Exception as e:
             pass
+
     # business logic
     def business_logic(self,objects_x2x1,current_frame,dict_out):
 
+        #If no cars are detected
         if len(objects_x2x1) == 0:
             self.no_detection_counter[self.camera_id]+=1
 
@@ -524,35 +535,29 @@ class CaptureWorker(threading.Thread):
                 if len(each_x2x1) > 0:
 
                     try:
-                        
                         distPix = round((abs(each_x2x1[0]-each_x2x1[1])), 2) #in pixels
-                        
                         PIXEL_PER_FOOT = self.get_pixel_resolution(self.camera_id, each_x2x1[0])
-                        
                         dist = round((distPix/PIXEL_PER_FOOT)*12, 2) #in inches
-
                         current_ts = datetime.now().strftime('%Y-%m-%d:%H-%M-%S-%f')
-                        
                         dist,overlaps = self.is_overlapping(dist)
                         if self.filter_special(overlaps,distPix,dict_out) == True:
                             continue
 
                         if dist <= self.RED_THRESHOLD_INCHES:
-                            self.distance_array[self.camera_id].append((self.SIGNAL_CODES[2], time.monotonic()))
+                            self.distance_array[self.camera_id].append((self.SIGNAL_CODES[2], np.round(time.monotonic(), decimals = 1)))
                         elif dist > self.RED_THRESHOLD_INCHES and dist <= self.YELLOW_THRESHOLD_INCHES:
-                            self.distance_array[self.camera_id].append((self.SIGNAL_CODES[1], time.monotonic()))
+                            self.distance_array[self.camera_id].append((self.SIGNAL_CODES[1], np.round(time.monotonic(), decimals = 1)))
                         else:
-                            self.distance_array[self.camera_id].append((self.SIGNAL_CODES[0], time.monotonic()))
-
-                            
+                            self.distance_array[self.camera_id].append((self.SIGNAL_CODES[0], np.round(time.monotonic(), decimals = 1)))
+    
                         self.distance_array_val[self.camera_id].append(dist)
 
                         if len(self.distance_array[self.camera_id]) >= self.NO_OF_DETECTION_FRAMES:
                             time_limit, final_score, final_status = self.get_final_status(self.distance_array[self.camera_id], cam_id=self.camera_id)
                             if final_status != None:
                                 score_log = f"Left Car X2:{each_x2x1[0]} | time_limit:{time_limit} | Frame Number {current_frame} | Final Status Scores:{final_score} ||"
-                                dist_log = f"{score_log} Distances(inches)- cam{self.camera_id}:{self.distance_array_val[self.camera_id]} | TimeStamp:{current_ts} ||"
-                                final_log = f"{dist_log}dist_log Status Codes- cam{self.camera_id}:{self.distance_array[self.camera_id]} | TimeStamp:{current_ts}"
+                                dist_log = f"{score_log}\n Distances(inches)- cam{self.camera_id}:{self.distance_array_val[self.camera_id]} | TimeStamp:{current_ts} ||"
+                                final_log = f"{dist_log}\n Dist_log Status Codes- cam{self.camera_id}:{self.distance_array[self.camera_id]} | TimeStamp:{current_ts}"
 
                                 self.current_status[self.camera_id] = final_status
                                 if self.prev_status[self.camera_id] != self.current_status[self.camera_id]:
@@ -562,8 +567,9 @@ class CaptureWorker(threading.Thread):
                                     now = datetime.now()
                                     time_now = now.strftime('%Y-%m-%d %H:%M:%S,%f').strip()[:-3]
                                     self.print_debug(f"\n{time_now} Status change for cam{self.camera_id}: {self.prev_status[self.camera_id]}->{self.current_status[self.camera_id]} | {final_status}--------------\n", 0)
-                                    ## Send event to edge_service
-                                    if not self.DRY_RUN:
+                                   
+                                    ## Send event to edge_service if dry run is not enabled and camera is not disabled in config
+                                    if not self.CAMERAS_DISABLED and not self.DRY_RUN:
                                         self.generate_event(self.current_status[self.camera_id],"","event")
                                     self.prev_status[self.camera_id] = self.current_status[self.camera_id]
                             
@@ -573,7 +579,6 @@ class CaptureWorker(threading.Thread):
                             else:
                                 self.distance_array[self.camera_id].clear()
                                 self.distance_array_val[self.camera_id].clear()
-                                
                                 
                                 
                     except Exception as e:

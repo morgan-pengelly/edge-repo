@@ -4,6 +4,16 @@ camsys:
     # Number of cameras
     NO_OF_CAMERAS: 6
 
+    #Camera disable
+    CAMERAS_DISABLED:
+        cam1: False
+        cam2: False
+        cam3: False
+        cam4: False
+        cam5: False
+        cam6: False
+            
+
     # Pixels to inches mapping
     REFERENCE_POINT_MATRIX:
         cam1:

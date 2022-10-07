@@ -87,8 +87,6 @@ class DeepStreamInference(threading.Thread):
 
         # this is setup when adding sources
         self.NO_OF_CAMERAS = -1 
-
-
         self.pipeline = None
         self.streammux = None
 
@@ -106,7 +104,6 @@ class DeepStreamInference(threading.Thread):
 
         self.fps_streams={}
         self.cameras_dict = {}
-               
 
         self.distance_array = {}
         self.distance_array_val = {}
@@ -443,7 +440,6 @@ class DeepStreamInference(threading.Thread):
             self.logger.info("error adding sources: %s",str(e))
         return True
 
-
     # bus_call
     def bus_call(self, bus, message, loop):
 
@@ -495,7 +491,13 @@ class DeepStreamInference(threading.Thread):
             vsource = self.args
         self.setup_ds_source()
         
-        # Standard GStreamer initialization
+        
+
+#---------------------------------------------------------------------------------
+#Creating gstreamer elements and pipeline
+#------------------------------------------------------------------------------------
+    
+    # Standard GStreamer initialization
         GObject.threads_init()
         Gst.init(None)
 
@@ -619,7 +621,6 @@ class DeepStreamInference(threading.Thread):
             # Set gpu IDs of the inference engines
             pgie.set_property("gpu_id", 0)
 
-
         # Tiler
         self.print_debug("Creating tiler \n ")
         tiler=Gst.ElementFactory.make("nvmultistreamtiler", "nvtiler")
@@ -635,7 +636,7 @@ class DeepStreamInference(threading.Thread):
         tiler.set_property("gpu_id", 0)
 
 
-        # NVVidConv
+        # Use convertor to convert from NV12 to RGBA as required by nvosd
         self.print_debug("Creating nvvidconv \n ")
         nvvideoconvert = Gst.ElementFactory.make("nvvideoconvert", "convertor")
         if not nvvideoconvert:
@@ -657,11 +658,17 @@ class DeepStreamInference(threading.Thread):
             self.print_debug("Unable to create nvvidconv_postosd")
             return False
             
-        # set up caps filter
+        # set up caps filter - limits what data/format can pass through onto next element
+        #https://gstreamer.freedesktop.org/documentation/application-development/basics/pads.html?gi-language=c
         caps = Gst.ElementFactory.make("capsfilter", "filter")
         caps.set_property("caps", Gst.Caps.from_string("video/x-raw(memory:NVMM), format=I420"))
         
-        # build stream
+        #Local file encoder
+        encoder_mp4 = Gst.ElementFactory.make("nvv4l2h264enc", "encoder2")
+        if is_aarch64():
+            encoder_mp4.set_property('preset-level', 1)
+            encoder_mp4.set_property('bufapi-version', 1)
+        # build stream encoder
         if self.out_rtsp_codec == "VP9":
             encoder = Gst.ElementFactory.make("nvv4l2vp9enc", "encoder")
             self.print_debug("Creating VP9 Encoder")
@@ -675,7 +682,7 @@ class DeepStreamInference(threading.Thread):
             self.print_debug(" Unable to create encoder")
             return False
         encoder.set_property('bitrate', self.out_rtsp_bitrate)
-        
+
         # jetson specific properties
         if is_aarch64():
             encoder.set_property('preset-level', 1)
@@ -694,7 +701,21 @@ class DeepStreamInference(threading.Thread):
         if not rtppay:
             self.print_debug("Unable to create rtppay")
         
-        # UDP sink
+        #Create Tee and Queues for splitting to two sink pads for RTSP and Local File Sink
+        tee=Gst.ElementFactory.make("tee", "nvsink-tee")
+        if not tee:
+            self.print_debug(" Unable to create tee \n")
+
+        queue1 = Gst.ElementFactory.make("queue", "nvtee-que1")
+        if not queue1:
+            self.print_debug(" Unable to create queue1 \n")
+
+        queue2 = Gst.ElementFactory.make("queue", "nvtee-que2")
+        if not queue2:
+            self.print_debug(" Unable to create queue2 \n")
+
+        #Create sinks for storing and streaming data out
+        # UDP sink for RSTP stream
         updsink_port_num = self.out_rtsp_port_number
         sink = Gst.ElementFactory.make("udpsink", "udpsink")
         if not sink:
@@ -710,6 +731,20 @@ class DeepStreamInference(threading.Thread):
             if(not is_aarch64()):
                 sink.set_property("gpu_id", 0)
         
+        #Local File sink
+        filesink = Gst.ElementFactory.make("splitmuxsink", "splitmuxsink")
+        if not sink:
+            self.print_debug(" Unable to create file sink \n")
+
+        filesink.set_property("location", "./%02d.mp4")
+        filesink.set_property("max-size-time", "5000000000")
+
+        if filesink:
+            if(not is_aarch64()):
+                filesink.set_property("gpu_id", 0)
+        #filesink.set_property("sync", 1)
+        #filesink.set_property("async", 0)
+
         self.print_debug("Adding elements to Pipeline")
         if self.use_inference:
             self.pipeline.add(pgie)
@@ -718,9 +753,14 @@ class DeepStreamInference(threading.Thread):
         self.pipeline.add(nvosd)
         self.pipeline.add(nvvidconv_postosd)
         self.pipeline.add(caps)
+        self.pipeline.add(tee)
+        self.pipeline.add(queue1)
+        self.pipeline.add(queue2)
         self.pipeline.add(encoder)
+        self.pipeline.add(encoder_mp4)
         self.pipeline.add(rtppay)
         self.pipeline.add(sink)
+        self.pipeline.add(filesink)
         
         self.print_debug("Linking elements in the Pipeline")
         if self.use_inference:
@@ -730,12 +770,20 @@ class DeepStreamInference(threading.Thread):
             self.streammux.link(tiler)
         tiler.link(nvvideoconvert)
         nvvideoconvert.link(nvosd)
-        
         nvosd.link(nvvidconv_postosd)
         nvvidconv_postosd.link(caps)
-        caps.link(encoder)
+        caps.link(tee)
+        tee.link(queue1)
+        tee.link(queue2)
+        queue1.link(encoder)
         encoder.link(rtppay)
         rtppay.link(sink)
+        queue2.link(encoder_mp4)
+        encoder_mp4.link(filesink)
+        #nvvidconv_postosd.link(caps)
+        #caps.link(encoder)
+        #encoder.link(rtppay)
+        #rtppay.link(sink)
 
         # create an event loop and feed gstreamer bus mesages to it
         loop = GObject.MainLoop()

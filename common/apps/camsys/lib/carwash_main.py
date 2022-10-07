@@ -120,11 +120,10 @@ if __name__ == '__main__':
     print("sources available")
     print("vsource: ",vsource)
     
-    
     carwash_count = 1
 	# setting up logger for reco_main
-    logger = carwash_logging.setup_timed_rotating_logger('carwash_main', '../logs/carwash_main.log')
-    logger.info("VERSION: %s",__version__)
+    #logger = carwash_logging.setup_timed_rotating_logger('carwash_main', '../logs/carwash_main.log')
+    #logger.info("VERSION: %s",__version__)
     # checks if the deepstream inference file is available
     check_deepstream_engine_bin()
 	# call CarwashPool to launch the processes

@@ -28,7 +28,7 @@ class EventManager(threading.Thread):
         
     def run_edge_manager(self):
         # tries to read line
-        # no lineas available checks for deepstream engine flags like EOF or OOM
+        # if no lines available, checks for deepstream engine flags like EOF or OOM
         # reports rolling average
         inference_time = time.time()
         num_events = 0

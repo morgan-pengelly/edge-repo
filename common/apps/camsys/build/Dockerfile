@@ -40,6 +40,13 @@ RUN pip3 install cython
 RUN pip3 install numpy
 RUN pip3 install requests
 
+#install for custom bindings
+RUN pip3 install pybind11
+
+#Added jetson-stats to monitor GPU usage
+RUN pip3 install -U jetson-stats
+
+
 #USER ${USER_NAME}
 
 ENTRYPOINT ["tail", "-f", "/dev/null"]
