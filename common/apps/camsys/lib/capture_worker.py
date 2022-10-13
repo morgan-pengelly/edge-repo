@@ -1,13 +1,11 @@
 # py libs
-import threading, traceback, time, datetime, random, subprocess, numpy as np, subprocess, sys, shlex, os, errno, shutil, getpass, glob, select, signal, collections, json, stat, itertools
-from datetime import datetime as dt_special, timedelta as dt_delta_special
-from datetime import datetime
+import threading, traceback, time, datetime, numpy as np, sys, collections, queue, datetime
+from collections import deque
 # carwash libs
 import carwash_logging
 from edge_services_camlib import edge_services
 from event_sender import EventSender
-import queue
-from collections import deque
+
 
 # class handler for the handling of each camera detections
 # each camera is handled by a capture worker thread and recevies the object information from the message distributor
@@ -15,12 +13,10 @@ from collections import deque
 # the connection is made to edge services to communicate the results
 class CaptureWorker(threading.Thread):
    
-
-    def __init__(self, connection, carwash_num, camera_id, num_cameras, camera_name, event_manager_thread, camera_id_logs):
+    def __init__(self, camera_id, camera_name, event_manager_thread):
         
         self.queue = queue.Queue()
-        self.camera_id_logs = camera_id_logs
-        
+
         # Inference Classes
         self.PGIE_CLASS_ID_BACKGROUND = 0
         self.PGIE_CLASS_ID_PERSON = 1
@@ -28,13 +24,17 @@ class CaptureWorker(threading.Thread):
         self.PGIE_CLASS_ID_FRONTLIGHT = 3
         self.PGIE_CLASS_ID_BACKLIGHT = 4
         
+        #Camera configuration variables
         self.NO_OF_CAMERAS = 6
         self.CAMERAS_DISABLED = {'cam1': False, 'cam2': False, 'cam3': False, 'cam4': False, 'cam5': False, 'cam6': False, }
+        self.camera_disabled = False
         self.REFERENCE_POINT_MATRIX = {'cam1': {'DEFAULT': 57, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 57, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}, 'cam2': {'DEFAULT': 62, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 62, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}, 'cam3': {'DEFAULT': 54, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 54, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}, 'cam4': {'DEFAULT': 62, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 62, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}, 'cam5': {'DEFAULT': 30, 'LEFT_THRESHOLD': [0, 100], 'LEFT_PIXEL': 6, 'CENTER_THRESHOLD': [100, 540], 'CENTER_PIXEL': 30, 'RIGHT_THRESHOLD': [540, 640], 'RIGHT_PIXEL': 6}, 'cam6': {'DEFAULT': 60, 'LEFT_THRESHOLD': [0, 200], 'LEFT_PIXEL': 12, 'CENTER_THRESHOLD': [200, 1080], 'CENTER_PIXEL': 60, 'RIGHT_THRESHOLD': [1080, 1280], 'RIGHT_PIXEL': 12}}
         self.NO_OF_DETECTION_FRAMES = 20
         self.SUPRESSION_ZONE = {}
         self.supression_pixel_from = list()
         self.supression_pixel_to = list()
+
+        #System configuration
         self.VEHICLE_DETECTION_IGNORE = {}
         self.NO_DETECTION_FRAMES_COUNT = 80
         self.SIGNAL_CODES = ['N', 'A', 'C', 'P', 'S']
@@ -45,7 +45,7 @@ class CaptureWorker(threading.Thread):
         self.ROLLING_FRAME = True
         self.ABSOLUTE_DIST = True
         self.printDebug = 0
-        self.camera_disable = False
+
         
         self.distance_array = {}
         self.distance_array_val = {}
@@ -55,8 +55,6 @@ class CaptureWorker(threading.Thread):
         self.no_detection_counter = {}
 
         # capture worker parameters
-        self.connection = connection
-        self.carwash_num = carwash_num
         self.camera_id = camera_id
         self.camera_name = camera_name
         self.json_full = collections.deque(maxlen=10)
@@ -111,8 +109,8 @@ class CaptureWorker(threading.Thread):
             self.cameras_dict = edge_services.get_cameras_configuration()
 
             #Parse configs
-            self.CAMERAS_DISABLED = camsys_dict["CAMERAS_DISABLED"]
             self.NO_OF_CAMERAS = len(self.cameras_dict)
+            self.CAMERAS_DISABLED = camsys_dict["CAMERAS_DISABLED"]
             self.REFERENCE_POINT_MATRIX = camsys_dict["REFERENCE_POINT_MATRIX"]
             self.SUPRESSION_ZONE = camsys_dict["SUPRESSION_ZONE"]
             self.VEHICLE_DETECTION_IGNORE = camsys_dict["VEHICLE_DETECTION_IGNORE"]
@@ -125,7 +123,9 @@ class CaptureWorker(threading.Thread):
             
             #Check to see if camera has been disabled in config
             try:
-                self.SCAMERAS_DISABLED = self.CAMERAS_DISABLED["cam"+str(self.camera_id)]
+                for key, value in self.CAMERAS_DISABLED.items():
+                    if key == "cam"+str(self.camera_id):
+                        self.camera_disabled = value
             except Exception as e:
                 self.CAMERAS_DISABLED = {}
 
@@ -153,7 +153,7 @@ class CaptureWorker(threading.Thread):
 
         return True
     
-    # sets parameters for calculations of distance
+    # sets parameters for calculations of distance, generating events
     def set_parameters2(self):
         if self.NO_OF_CAMERAS > 0:
             self.yellow_bucket = self.init_dict(self.NO_OF_CAMERAS, isList=1)
@@ -168,9 +168,8 @@ class CaptureWorker(threading.Thread):
             self.no_detection_counter = self.init_dict(self.NO_OF_CAMERAS, init_value=0)
             return True
         return True
-
     
-    # init_dict function from original code
+    # Initialize dictionary
     def init_dict(self, no_of_camera, isList=0, init_value=''):
         data_dict = {}
         for i in range(1, no_of_camera+1):
@@ -569,7 +568,8 @@ class CaptureWorker(threading.Thread):
                                     self.print_debug(f"\n{time_now} Status change for cam{self.camera_id}: {self.prev_status[self.camera_id]}->{self.current_status[self.camera_id]} | {final_status}--------------\n", 0)
                                    
                                     ## Send event to edge_service if dry run is not enabled and camera is not disabled in config
-                                    if not self.CAMERAS_DISABLED and not self.DRY_RUN:
+                                    if not self.camera_disabled and not self.DRY_RUN:
+                                        self.print_debug(f"Sending Event for Cam{self.camera_id}")
                                         self.generate_event(self.current_status[self.camera_id],"","event")
                                     self.prev_status[self.camera_id] = self.current_status[self.camera_id]
                             

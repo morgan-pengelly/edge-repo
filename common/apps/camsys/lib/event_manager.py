@@ -1,9 +1,9 @@
 # py libs
-import time, logging, threading, numpy as np, os, errno, collections, itertools, datetime, json
+import time, threading, numpy as np
 from datetime import datetime
 # carwash libs
 import carwash_logging
-import re
+
 #from dummy_deepstream3 import InferenceEngine
 from event_sender import EventSender
 import queue
@@ -21,7 +21,7 @@ class EventManager(threading.Thread):
         self.fifo_queue = queue.Queue()
         super().__init__()
 
-    # signaled to stop djson_output_stringeepstream engine, terminates with bStop
+    # signaled to stop deepstream engine, terminates with bStop
     def stop(self):
         self.logger.info("signal to stop edge manager")
         self.bStop = True

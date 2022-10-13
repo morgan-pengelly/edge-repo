@@ -1,5 +1,6 @@
 # py libs
-import argparse, sys, os, signal, requests, requests.utils, multiprocessing, traceback, shlex, subprocess, shutil, time
+import  sys, os, signal, multiprocessing, traceback, time
+
 # carwash libs
 from carwash_process import CarwashProcess
 from edge_services_camlib import edge_services
@@ -22,7 +23,7 @@ def init_from_edge_config():
 # defines the entry point for each process
 def carwash_launcher(carwash_num, carwash_count):
     logger.info('launching process: %d', carwash_num)
-    app = CarwashProcess(carwash_num, carwash_count, vsource)
+    app = CarwashProcess(vsource)
     try:
         app.run()
     except:
@@ -30,16 +31,16 @@ def carwash_launcher(carwash_num, carwash_count):
     logger.info('carwash process: %d terminated...', carwash_num)
     exit(1)
 
-# checks if the deepstream inference engine (former carwash_inference.py exists)
+# check if the deepstream inference engine exists
 def check_deepstream_engine_bin():
     exists = os.path.isfile('carwash_inference.py')
     if exists:
         logger.info('Inference engine found, continue...')
     else:
-        logger.info('Inference engine not found, check the file carwash_inference.py existsterminating...')
+        logger.info('Inference engine not found, check the file carwash_inference.py exists. Terminating...')
         sys.exit(1)
     
-# handles the running of the system, launches processed in a process pool
+# handles the running of the system, launches processes in a process pool
 class carwash_pool(object):
 
     def __init__(self, carwash_count):
@@ -49,6 +50,7 @@ class carwash_pool(object):
         #signals that the system will recognize and pass through all the functions
         signal.signal(signal.SIGINT, self._sigint_handler)
         signal.signal(signal.SIGTERM, self._sigterm_handler)
+
         logger.info('finished initialization')
 
     # launches processes
@@ -72,7 +74,7 @@ class carwash_pool(object):
 
         logger.info('exit')
 
-    # hanlder for interruption signal
+    # handler for interruption signal
     def _sigint_handler(self, signum, taskfrm):
         logger.info('sigint captured: terminating processes and threads')
         self.pool.terminate()
@@ -95,16 +97,13 @@ class carwash_pool(object):
         logger.info('shutdown')
         sys.exit(1)
 
-
-
 if __name__ == '__main__':
-    # execution command is:
-    # python3 carwash_main.py cam1 cam2 cam3 cam4 cam5 cam6
-    # cameras are tiled top to bottom left to right
-    # setting up logger for reco_main
+
+    # Configure Logger
     logger = carwash_logging.setup_timed_rotating_logger('carwash_main', '../logs/carwash_main.log')
     logger.info("VERSION: %s",__version__)
     
+    #Get sources from configuration file
     num_sources = 0
     while num_sources == 0:
         # parse arguments
@@ -119,13 +118,11 @@ if __name__ == '__main__':
             time.sleep(10)
     print("sources available")
     print("vsource: ",vsource)
-    
     carwash_count = 1
-	# setting up logger for reco_main
-    #logger = carwash_logging.setup_timed_rotating_logger('carwash_main', '../logs/carwash_main.log')
-    #logger.info("VERSION: %s",__version__)
+	
     # checks if the deepstream inference file is available
     check_deepstream_engine_bin()
+
 	# call CarwashPool to launch the processes
     pool = carwash_pool(carwash_count)
     pool.run()

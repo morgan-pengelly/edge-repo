@@ -17,37 +17,23 @@
 # limitations under the License.
 ################################################################################
 
+#python libs
 import sys
 sys.path.append('../')
-import gi
+import threading, traceback, socket
 import pyds
-# import configparser
+import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('GstRtspServer', '1.0')
 from gi.repository import GObject, Gst, GstRtspServer
-# from gi.repository import GLib
 from ctypes import *
 from datetime import datetime
-import time
-import sys
-import math
-import threading
-import re
-# import random
-# import platform
 from common.is_aarch_64 import is_aarch64
 from common.FPS import GETFPS
-
-import socket
 from urllib.parse import urlparse
 
-import traceback
-
+#carwash libs
 from edge_services_camlib import edge_services
-
-import re
-import os
-import collections
 import helper
 import carwash_logging
 
@@ -64,11 +50,13 @@ class DeepStreamInference(threading.Thread):
         self.logger = carwash_logging.setup_timed_rotating_logger('inference_engine', '../logs/inference_engine.log')
         self.fifo_queue = fifo_queue
         
+        #Muxer and Tiler output resolution variables
         self.MUXER_OUTPUT_WIDTH = 1280
         self.MUXER_OUTPUT_HEIGHT = 720
         self.TILED_OUTPUT_WIDTH = 1280
         self.TILED_OUTPUT_HEIGHT = 720
 
+        #Inference classes
         self.PGIE_CLASS_ID_BACKGROUND = 0
         self.PGIE_CLASS_ID_PERSON = 1
         self.PGIE_CLASS_ID_VEHICLE = 2
@@ -83,7 +71,6 @@ class DeepStreamInference(threading.Thread):
         self.is_file = False
         self.isEdgeService = True
         self.printDebug = 0 #-1: no-print, 0:minimum, 1:devloper, 2:system
-
 
         # this is setup when adding sources
         self.NO_OF_CAMERAS = -1 
@@ -732,18 +719,20 @@ class DeepStreamInference(threading.Thread):
                 sink.set_property("gpu_id", 0)
         
         #Local File sink
-        filesink = Gst.ElementFactory.make("splitmuxsink", "splitmuxsink")
+        filesink = Gst.ElementFactory.make("filesink", "fsink")
+        filesink.set_property("sync", 1)
+        filesink.set_property("async", 0)
         if not sink:
             self.print_debug(" Unable to create file sink \n")
-
-        filesink.set_property("location", "./%02d.mp4")
-        filesink.set_property("max-size-time", "5000000000")
+        #filesink = Gst.ElementFactory.make("splitmuxsink", "splitmuxsink")
+        #filesink.set_property("location", "./%02d.mp4")
+        #filesink.set_property("max-size-time", 5000000000)
 
         if filesink:
             if(not is_aarch64()):
                 filesink.set_property("gpu_id", 0)
-        #filesink.set_property("sync", 1)
-        #filesink.set_property("async", 0)
+
+
 
         self.print_debug("Adding elements to Pipeline")
         if self.use_inference:
@@ -753,14 +742,14 @@ class DeepStreamInference(threading.Thread):
         self.pipeline.add(nvosd)
         self.pipeline.add(nvvidconv_postosd)
         self.pipeline.add(caps)
-        self.pipeline.add(tee)
-        self.pipeline.add(queue1)
-        self.pipeline.add(queue2)
+        #self.pipeline.add(tee)
+        #self.pipeline.add(queue1)
+        #self.pipeline.add(queue2)
         self.pipeline.add(encoder)
-        self.pipeline.add(encoder_mp4)
+        #self.pipeline.add(encoder_mp4)
         self.pipeline.add(rtppay)
         self.pipeline.add(sink)
-        self.pipeline.add(filesink)
+        #self.pipeline.add(filesink)
         
         self.print_debug("Linking elements in the Pipeline")
         if self.use_inference:
@@ -772,14 +761,14 @@ class DeepStreamInference(threading.Thread):
         nvvideoconvert.link(nvosd)
         nvosd.link(nvvidconv_postosd)
         nvvidconv_postosd.link(caps)
-        caps.link(tee)
-        tee.link(queue1)
-        tee.link(queue2)
-        queue1.link(encoder)
+        caps.link(encoder)
+        #tee.link(queue1)
+        #tee.link(queue2)
+        #queue1.link(encoder)
         encoder.link(rtppay)
         rtppay.link(sink)
-        queue2.link(encoder_mp4)
-        encoder_mp4.link(filesink)
+        #queue2.link(encoder_mp4)
+        #encoder_mp4.link(filesink)
         #nvvidconv_postosd.link(caps)
         #caps.link(encoder)
         #encoder.link(rtppay)

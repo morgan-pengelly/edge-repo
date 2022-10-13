@@ -1,25 +1,24 @@
 # py libs
-import time, logging, threading, numpy as np, os, errno, collections, itertools, datetime, json, sys
-from datetime import datetime
+import time,  threading, numpy as np, os, queue
+
 # carwash libs
 import carwash_logging
-import re
+
 #from dummy_deepstream4 import DeepStreamInference
 from carwash_inference import DeepStreamInference
-import queue
 
 # message distributor handler class
 # This thread takes care of pulling the jsons obtained by the deepstream worker, validate the format and send the to all camera threads
 # reports alive heartbeat every X seconds to the corresponding log
 class MessageDistributorWorker(threading.Thread):
     
-    def __init__(self, camera_threads, reco_num, vsource, event_manager_thread):
+    def __init__(self, camera_threads, vsource, event_manager_thread):
         self.vsource = vsource
         self.camera_threads = camera_threads
         self.last_message = None
         self.deepstream_json_reception_rolling_average = 1800.0
         self.check_for_alive_engine = 10.0
-        self.logger = carwash_logging.setup_timed_rotating_logger('message_distributor_worker_'+str(reco_num), '../logs/message_distributor.log')
+        self.logger = carwash_logging.setup_timed_rotating_logger('message_distributor_worker', '../logs/message_distributor.log')
         self.rolling_average_fps = np.zeros(10)
         self.bStop = False
         self.fifo_queue = queue.Queue()
@@ -27,7 +26,7 @@ class MessageDistributorWorker(threading.Thread):
         self.event_manager_thread = event_manager_thread
         super().__init__()
 
-    # signaled to stop djson_output_stringeepstream engine, terminates with bStop
+    # signaled to stop terminates with bStop
     def stop(self):
         self.logger.info("signal to stop message distributor worker")
         self.bStop = True
@@ -105,7 +104,6 @@ class MessageDistributorWorker(threading.Thread):
                         distributor_json_counter += 1
                     except Exception as e:
                         pass
-                
             
         self.logger.info("stopping deepstream engine")
         
@@ -117,9 +115,6 @@ class MessageDistributorWorker(threading.Thread):
         # if the message is a valid json then sends it to all camera threads
 
         self.launch_deepstream_engine()
-        
         self.run_deepstream_engine()
-        
         self.terminate_deepstream_engine()
-        
         self.logger.info("terminating message distributor worker")

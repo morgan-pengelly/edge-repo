@@ -1,9 +1,8 @@
 # py libs
-import threading, time, os, json, collections, numpy as np, datetime, base64, uuid, traceback, sys
+import threading
+
 # carwash libs
-import carwash_logging
 from edge_services_camlib import edge_services
-from datetime import datetime
 
 class EventSender(threading.Thread):
     

@@ -1,8 +1,5 @@
-import requests
+import requests, time, random
 from threading import Semaphore
-import time
-import random
-
 
 class MessageRepetitionControl:
 

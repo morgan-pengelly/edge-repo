@@ -1,7 +1,7 @@
 # py libs
-import threading, traceback, time, datetime, random, subprocess, sys, shlex, os, errno, shutil, getpass, glob, select, subprocess, signal, io, json, subprocess, numpy as np
-from datetime import datetime as dt_special, timedelta as dt_delta_special
+import threading, time, subprocess, shlex, os, select, subprocess, subprocess
 from collections import deque
+
 # carwash libs
 import carwash_logging
 
@@ -9,6 +9,7 @@ import carwash_logging
 # the deepstream inference engine takes care of processing the cameras and generating 2 things:
 # outgoing stream over rtsp that can be displayed on the same device and mainly to be displayed outside of the box
 # raw inference object data to be streamed out over stdout and pipelined from the wrapper system
+
 class DeepstreamWorker(threading.Thread):
     connection = None
     thread_count = 0

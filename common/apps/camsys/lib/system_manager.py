@@ -1,5 +1,5 @@
 #py libraries
-import threading, traceback, time, datetime, random, subprocess, numpy as np, subprocess, sys, shlex, os, errno, shutil, getpass, glob, select, signal, collections, json, stat, itertools
+import threading
 from jtop import jtop #https://github.com/rbonghi/jetson_stats/wiki/library
 
 # carwash libs
@@ -19,7 +19,10 @@ class SystemManager(threading.Thread):
 
     def run(self):
         with jtop() as jetson:
-        # jetson.ok() will provide stats are pre-determined update frequency
+            # Enable Jetson Clocks for maximum performance
+            jetson.jetson_clocks = True
+            print(f"Jeston Clocks status:{jetson.jetson_clocks}")
+            # jetson.ok() will provide stats are pre-determined update frequency
             while jetson.ok():
                 # Read tegra stats
                 self.logger.info(jetson.stats)
