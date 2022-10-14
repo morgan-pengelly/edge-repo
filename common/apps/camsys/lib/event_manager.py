@@ -1,16 +1,11 @@
 # py libs
-import time, threading, numpy as np
+import time, threading, numpy as np, queue
 from datetime import datetime
 # carwash libs
 import carwash_logging
-
-#from dummy_deepstream3 import InferenceEngine
 from event_sender import EventSender
-import queue
 
-# message distributor handler class
-# This thread takes care of pulling the jsons obtained by the deepstream worker, validate the format and send the to all camera threads
-# reports alive heartbeat every X seconds to the corresponding log
+
 class EventManager(threading.Thread):
     
     def __init__(self):
@@ -52,7 +47,6 @@ class EventManager(threading.Thread):
                 msg1 = str_out[1]
                 msg2 = str_out[2]
                 msg_type = str_out[3]
-                camera_thread = 0
                 try:
                     t = EventSender(self.logger,camera_id,msg1,msg2,msg_type)
                     t.start()

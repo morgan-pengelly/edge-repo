@@ -106,17 +106,13 @@ if __name__ == '__main__':
     #Get sources from configuration file
     num_sources = 0
     while num_sources == 0:
-        # parse arguments
-        vsource = sys.argv[1:]
         num_sources = len(vsource)
-        if len(vsource) < 1:
-            cameras_dict = init_from_edge_config()
-            num_sources=len(cameras_dict)
-            vsource = [each['url'] for key, each in cameras_dict.items()]
+        cameras_dict = init_from_edge_config()
+        num_sources=len(cameras_dict)
+        vsource = [each['url'] for key, each in cameras_dict.items()]
         if num_sources < 1:
             logger.info("waiting for API to pull cameras")
             time.sleep(10)
-    print("sources available")
     print("vsource: ",vsource)
     carwash_count = 1
 	

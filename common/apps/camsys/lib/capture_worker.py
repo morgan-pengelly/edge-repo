@@ -4,13 +4,12 @@ from collections import deque
 # carwash libs
 import carwash_logging
 from edge_services_camlib import edge_services
-from event_sender import EventSender
 
 
-# class handler for the handling of each camera detections
+# class handler for the handling of each camera 
 # each camera is handled by a capture worker thread and recevies the object information from the message distributor
 # the message is decomposed and only the objects corresponding to the camera processed are used for calculations
-# the connection is made to edge services to communicate the results
+# Events are sent to event_manager to be processed
 class CaptureWorker(threading.Thread):
    
     def __init__(self, camera_id, camera_name, event_manager_thread):
@@ -45,14 +44,6 @@ class CaptureWorker(threading.Thread):
         self.ROLLING_FRAME = True
         self.ABSOLUTE_DIST = True
         self.printDebug = 0
-
-        
-        self.distance_array = {}
-        self.distance_array_val = {}
-
-        self.prev_status = {}
-        self.current_status = {}
-        self.no_detection_counter = {}
 
         # capture worker parameters
         self.camera_id = camera_id

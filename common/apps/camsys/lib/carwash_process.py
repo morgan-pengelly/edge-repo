@@ -26,7 +26,7 @@ class CarwashProcess(object):
         self.thread_distributor = None
         self.thread_event_manager = None
         self.thread_system_manager = None
-        self.thread_cameras = [] #List of capture_worker threads
+        self.thread_cameras = [] #List of capture_worker threads to pass to message distributror
         pass
     
     # stop signal received enabling the stop flag so all processes can be stopped
@@ -42,7 +42,7 @@ class CarwashProcess(object):
         self.stop()
 
     #Launches the event manager
-    #pulls the jsons obtained by the deepstream worker, validates the format and sends the to all camera threads               
+               
     def launch_event_manager(self):
         self.thread_event_manager = EventManager()
         self.thread_event_manager.start()
@@ -50,6 +50,7 @@ class CarwashProcess(object):
     # launches the camera handlers
     # camera handlers run the distance calculations for each camera using the information provided by the message distributor
     def launch_camera_handlers(self):
+        """Launch camera handler for each available source"""
         for i in range(1, self.number_of_cameras+1):
             self.logger.info("start recognition of camera: [%d] address: %s", i, self.vsource[i-1])            
             t = CaptureWorker( i, self.vsource[i-1],self.thread_event_manager)

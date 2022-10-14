@@ -56,13 +56,6 @@ class DeepStreamInference(threading.Thread):
         self.TILED_OUTPUT_WIDTH = 1280
         self.TILED_OUTPUT_HEIGHT = 720
 
-        #Inference classes
-        self.PGIE_CLASS_ID_BACKGROUND = 0
-        self.PGIE_CLASS_ID_PERSON = 1
-        self.PGIE_CLASS_ID_VEHICLE = 2
-        self.PGIE_CLASS_ID_FRONTLIGHT = 3
-        self.PGIE_CLASS_ID_BACKLIGHT = 4
-
         self.no_display = False
         self.use_inference = True
         self.client_demo_mode = True
@@ -77,11 +70,6 @@ class DeepStreamInference(threading.Thread):
         self.pipeline = None
         self.streammux = None
 
-        self.DRY_RUN = False
-        self.ROLLING_FRAME = True
-        self.ABSOLUTE_DIST = True
-
-
         self.source_id_list = []
         self.eos_list = []
         self.source_enabled = []
@@ -91,13 +79,6 @@ class DeepStreamInference(threading.Thread):
 
         self.fps_streams={}
         self.cameras_dict = {}
-
-        self.distance_array = {}
-        self.distance_array_val = {}
-
-        self.prev_status = {}
-        self.current_status = {}
-        self.no_detection_counter = {}
         
         #rtsp output parameters
         self.out_rtsp_codec = "VP9"
@@ -169,7 +150,6 @@ class DeepStreamInference(threading.Thread):
 
         return (hostname, port )
 
-
     def isCamAlive(self, url_str):
         result_of_check = -1
         location = self.getIPnPort(url_str)
@@ -183,42 +163,36 @@ class DeepStreamInference(threading.Thread):
 
         return True if result_of_check == 0 else False
 
-    # tiler_sink_pad_buffer_probe  will extract metadata received on tiler 
-    # src pad and update params for drawing rectangle, object information etc.
+    # Extract metadata received on tiler src pad and put it into queue to be sent to capture worker threads for processing
+    # update params for drawing rectangle, object information etc and then 
     def tiler_sink_pad_buffer_probe(self, pad, info, u_data):
-        frame_number = 0
-        num_rects = 0
+
+        #Pull gstream buffer
         gst_buffer = info.get_buffer()
         if not gst_buffer:
             self.print_debug("Unable to get GstBuffer ")
             return
+
+        #List to be populated by metadata for each sinkpad in tiler
         inference_objects = list()
         for i in range(self.NO_OF_CAMERAS):
             inference_objects.append(list())
+
         # Retrieve batch metadata from the gst_buffer
         # Note that pyds.gst_buffer_get_nvds_batch_meta() expects the
         # C address of gst_buffer as input, which is obtained with hash(gst_buffer)
         batch_meta = pyds.gst_buffer_get_nvds_batch_meta(hash(gst_buffer))
-
         l_frame = batch_meta.frame_meta_list
 
         display_meta=pyds.nvds_acquire_display_meta_from_pool(batch_meta)
         objects_x2x1 = {}
+
         while l_frame is not None:
             try:
-                # Note that l_frame.data needs a cast to pyds.NvDsFrameMeta
-                # The casting is done by pyds.NvDsFrameMeta.cast()
-                # The casting also keeps ownership of the underlying memory
-                # in the C code, so the Python garbage collector will leave
-                # it alone.
                 frame_meta = pyds.NvDsFrameMeta.cast(l_frame.data)
-                
-                stream_number = frame_meta.pad_index
-                camera_id = stream_number + 1
-
-                num_rects = frame_meta.num_obj_meta
                 l_obj=frame_meta.obj_meta_list
                 inference_objects[int(frame_meta.pad_index)].append({"left" : -1, "top" : -1,"width" : -1, "height" : -1, "class_id" : -1, "frame_number" : frame_meta.frame_num })
+                
                 while l_obj is not None:
                     try:
                         obj_meta=pyds.NvDsObjectMeta.cast(l_obj.data)
@@ -230,7 +204,9 @@ class DeepStreamInference(threading.Thread):
                             obj_meta.rect_params.width = 1
                         if obj_meta.rect_params.height < 0:
                             obj_meta.rect_params.height = 1
-                        inference_objects[int(frame_meta.pad_index)].append({"left" : obj_meta.rect_params.left, "top" : obj_meta.rect_params.top,"width" : obj_meta.rect_params.width, "height" : obj_meta.rect_params.height, "class_id" : obj_meta.class_id })
+
+                        #Populate inference_objects with frame meta data for each object
+                        inference_objects[int(frame_meta.pad_index)].append({"left" : obj_meta.rect_params.left, "top" : obj_meta.rect_params.top,"width" : obj_meta.rect_params.width, "height" : obj_meta.rect_params.height, "class_id" : obj_meta.class_id, "confidence" : obj_meta.confidence })
                         l_obj=l_obj.next
                     except StopIteration:
                         break
@@ -243,8 +219,8 @@ class DeepStreamInference(threading.Thread):
             except Exception:
                 traceback.print_exception(*sys.exc_info())
 
-            frame_number = frame_meta.frame_num
-
+        #Put metadata from inference engine into queue created by message_distributor_worker
+        #It will then pass to each capture_worker thread for processing/busines logic
         self.fifo_queue.put(inference_objects)
         
         return Gst.PadProbeReturn.OK
@@ -531,9 +507,7 @@ class DeepStreamInference(threading.Thread):
                 self.streammux.set_property("sync-inputs", 1)
         elif self.client_demo_mode == True:
             self.streammux.set_property('live-source', 1)
-             
-
-
+            
         self.pipeline.add(self.streammux)
 
         number_sources = self.num_sources
@@ -587,7 +561,7 @@ class DeepStreamInference(threading.Thread):
         if self.num_sources == 0:
            return False        
 
-        # pgie
+        # Primary inference engine (pgie) 
         if self.use_inference:
             self.print_debug("Creating Pgie \n ")
             pgie = Gst.ElementFactory.make("nvinfer", "primary-inference")
@@ -598,8 +572,7 @@ class DeepStreamInference(threading.Thread):
             # Set pgie configuration file paths
             pgie.set_property('config-file-path', "config_inference_primary_ssd.txt")
 
-            # Set necessary properties of the nvinfer element, 
-            # the necessary ones are:
+            # Set necessary properties of the nvinfererence element:
             pgie_batch_size = pgie.get_property("batch-size")
             if(pgie_batch_size < self.NO_OF_CAMERAS):
                 self.print_debug(f"Overriding infer-config batch-size:{pgie_batch_size} with number of sources:{self.num_sources}\n")
@@ -689,7 +662,7 @@ class DeepStreamInference(threading.Thread):
             self.print_debug("Unable to create rtppay")
         
         #Create Tee and Queues for splitting to two sink pads for RTSP and Local File Sink
-        tee=Gst.ElementFactory.make("tee", "nvsink-tee")
+        tee = Gst.ElementFactory.make("tee", "nvsink-tee")
         if not tee:
             self.print_debug(" Unable to create tee \n")
 

@@ -3,8 +3,6 @@ import time,  threading, numpy as np, os, queue
 
 # carwash libs
 import carwash_logging
-
-#from dummy_deepstream4 import DeepStreamInference
 from carwash_inference import DeepStreamInference
 
 # message distributor handler class
@@ -65,7 +63,7 @@ class MessageDistributorWorker(threading.Thread):
         
     def run_deepstream_engine(self):
         # tries to read line
-        # no lineas available checks for deepstream engine flags like EOF or OOM
+        # if no lines available checks for deepstream engine flags like EOF or OOM
         # reports rolling average
         inference_time = time.time()
         check_alive_time = time.time()
