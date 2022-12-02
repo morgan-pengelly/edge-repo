@@ -36,3 +36,4 @@ ll-lib-file=/opt/nvidia/deepstream/deepstream-5.1/lib/libnvds_mot_klt.so
 #ll-lib-file=/opt/nvidia/deepstream/deepstream-5.1/lib/libnvds_nvdcf.so
 #ll-config-file=tracker_config.yml
 enable-batch-process=1
+enable-past-frame=1

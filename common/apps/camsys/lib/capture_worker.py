@@ -1,6 +1,7 @@
 # py libs
-import threading, traceback, time, datetime, numpy as np, sys, collections, queue, datetime
+import threading, traceback, time, numpy as np, sys, collections, queue
 from collections import deque
+from datetime import datetime
 # carwash libs
 import carwash_logging
 from edge_services_camlib import edge_services
@@ -54,11 +55,11 @@ class CaptureWorker(threading.Thread):
         self.capture_worker_lps = 0
         self.valid_dict_vmps = 0
         self.valid_dict_vmps2 = 0
-        self.avg_fps = None
-        self.capture_max_time_no_new_json = 10
-        self.rolling_average_fps = np.zeros(10)
+        #self.avg_fps = None
+        #self.capture_max_time_no_new_json = 10
+        #self.rolling_average_fps = np.zeros(10)
         self.reception_rolling_average = 1800.0
-        self.alert_threads = []
+        #self.alert_threads = []
         self.event_manager_thread = event_manager_thread
         self.max_queue_size = 10
         
@@ -581,9 +582,9 @@ class CaptureWorker(threading.Thread):
         # initiate parameters
         self.set_parameters1()
         self.set_parameters2()
-        entered_first = 0
         start_time = time.time()
         start_time_no_frames = time.time()
+
         # loops while there are frames being written
         skipped_frames = 0
         queue_max = 0
@@ -602,7 +603,6 @@ class CaptureWorker(threading.Thread):
                 self.valid_dict_vmps2 = 0
             
             if time.time() - start_time > self.reception_rolling_average:
-                
                 start_time = time.time()
                 processed_dict_vmps_counter = self.valid_dict_vmps / self.reception_rolling_average
                 self.logger.info("capture worker for camera : %s, processed msg/sec: %s, skipped frames: %s, queue max size: %s", str(self.camera_name), str(processed_dict_vmps_counter), str(skipped_frames), str(queue_max))

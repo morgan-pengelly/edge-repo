@@ -31,6 +31,7 @@ from datetime import datetime
 from common.is_aarch_64 import is_aarch64
 from common.FPS import GETFPS
 from urllib.parse import urlparse
+import configparser
 
 #carwash libs
 from edge_services_camlib import edge_services
@@ -58,6 +59,7 @@ class DeepStreamInference(threading.Thread):
 
         self.no_display = False
         self.use_inference = True
+        self.use_tracker = True
         self.client_demo_mode = True
 
         self.is_live = False
@@ -185,7 +187,6 @@ class DeepStreamInference(threading.Thread):
         l_frame = batch_meta.frame_meta_list
 
         display_meta=pyds.nvds_acquire_display_meta_from_pool(batch_meta)
-        objects_x2x1 = {}
 
         while l_frame is not None:
             try:
@@ -213,6 +214,34 @@ class DeepStreamInference(threading.Thread):
                     except Exception:
                         traceback.print_exception(*sys.exc_info())
                 
+                #Configuring Display meta to overlay on frames
+                display_meta=pyds.nvds_acquire_display_meta_from_pool(batch_meta)
+                display_meta.num_labels = 1
+                py_nvosd_text_params = display_meta.text_params[0]
+
+                # Setting display text to be shown on screen
+                py_nvosd_text_params.display_text = "Vehicle_count"
+                #py_nvosd_text_params.display_text = "Vehicle_count={} ".format( obj_counter[PGIE_CLASS_ID_VEHICLE], obj_counter[PGIE_CLASS_ID_PERSON])
+
+                # Now set the offsets where the string should appear
+                py_nvosd_text_params.x_offset = 10
+                py_nvosd_text_params.y_offset = 12
+
+                # Font , font-color and font-size
+                py_nvosd_text_params.font_params.font_name = "Serif"
+                py_nvosd_text_params.font_params.font_size = 10
+                # set(red, green, blue, alpha); set to White
+                py_nvosd_text_params.font_params.font_color.set(1.0, 1.0, 1.0, 1.0)
+
+                # Text background color
+                py_nvosd_text_params.set_bg_clr = 1
+                # set(red, green, blue, alpha); set to Black
+                py_nvosd_text_params.text_bg_clr.set(0.0, 0.0, 0.0, 1.0)
+                # Using pyds.get_string() to get display_text as string
+                print(pyds.get_string(py_nvosd_text_params.display_text))
+                pyds.nvds_add_display_meta_to_frame(frame_meta, display_meta)
+
+
                 l_frame=l_frame.next            
             except StopIteration:
                 break
@@ -403,9 +432,9 @@ class DeepStreamInference(threading.Thread):
             self.logger.info("error adding sources: %s",str(e))
         return True
 
-    # bus_call
+    # Parse messages from gstreamer bus
     def bus_call(self, bus, message, loop):
-
+        
         t = message.type
         if t == Gst.MessageType.EOS:
             self.logger.info(f"End-of-stream")
@@ -418,7 +447,7 @@ class DeepStreamInference(threading.Thread):
 
         elif t == Gst.MessageType.ERROR:
             err, debug = message.parse_error()
-            self.print_debug(f"Error!!{err}:{debug}\n")
+            self.logger.info(f"Error!!{err}:{debug}\n")
             loop.quit()
 
         elif t == Gst.MessageType.ELEMENT:
@@ -453,13 +482,11 @@ class DeepStreamInference(threading.Thread):
             self.NO_OF_CAMERAS=self.num_sources
             vsource = self.args
         self.setup_ds_source()
-        
-        
 
-#---------------------------------------------------------------------------------
-#Creating gstreamer elements and pipeline
-#------------------------------------------------------------------------------------
-    
+    #--------------------------------------------------------------------------
+    # Creating gstreamer elements and pipeline
+    #--------------------------------------------------------------------------
+        
     # Standard GStreamer initialization
         GObject.threads_init()
         Gst.init(None)
@@ -510,6 +537,7 @@ class DeepStreamInference(threading.Thread):
             
         self.pipeline.add(self.streammux)
 
+        #Create source bin, adds sources and add to pipeline
         number_sources = self.num_sources
         for i in range(number_sources):
                 self.print_debug(f"Creating source_bin:{i}\n")
@@ -561,7 +589,7 @@ class DeepStreamInference(threading.Thread):
         if self.num_sources == 0:
            return False        
 
-        # Primary inference engine (pgie) 
+        # Configure primary inference engine (pgie) 
         if self.use_inference:
             self.print_debug("Creating Pgie \n ")
             pgie = Gst.ElementFactory.make("nvinfer", "primary-inference")
@@ -581,22 +609,52 @@ class DeepStreamInference(threading.Thread):
             # Set gpu IDs of the inference engines
             pgie.set_property("gpu_id", 0)
 
+        #Create tracker and import configuration
+        if self.use_tracker:
+            tracker = Gst.ElementFactory.make("nvtracker", "tracker")
+            if not tracker:
+                self.print_debug(" Unable to create tracker \n")
+            #Set properties of tracker
+            config = configparser.ConfigParser()
+            config.read('tracker_config.txt')
+            config.sections()
+
+            for key in config['tracker']:
+                if key == 'tracker-width' :
+                    tracker_width = config.getint('tracker', key)
+                    tracker.set_property('tracker-width', tracker_width)
+                if key == 'tracker-height' :
+                    tracker_height = config.getint('tracker', key)
+                    tracker.set_property('tracker-height', tracker_height)
+                if key == 'gpu-id' :
+                    tracker_gpu_id = config.getint('tracker', key)
+                    tracker.set_property('gpu_id', tracker_gpu_id)
+                if key == 'll-lib-file' :
+                    tracker_ll_lib_file = config.get('tracker', key)
+                    tracker.set_property('ll-lib-file', tracker_ll_lib_file)
+                if key == 'll-config-file' :
+                    tracker_ll_config_file = config.get('tracker', key)
+                    tracker.set_property('ll-config-file', tracker_ll_config_file)
+                if key == 'enable-batch-process' :
+                    tracker_enable_batch_process = config.getint('tracker', key)
+                    tracker.set_property('enable_batch_process', tracker_enable_batch_process)
+                if key == 'enable-past-frame' :
+                    tracker_enable_past_frame = config.getint('tracker', key)
+                    tracker.set_property('enable_past_frame', tracker_enable_past_frame)
+
         # Tiler
         self.print_debug("Creating tiler \n ")
         tiler=Gst.ElementFactory.make("nvmultistreamtiler", "nvtiler")
         if not tiler:
             self.print_debug(" Unable to create tiler \n")
             return
-
-        # Set tiler properties
         tiler.set_property("rows", 2)
         tiler.set_property("columns", 3)
         tiler.set_property("width", self.TILED_OUTPUT_WIDTH)
         tiler.set_property("height", self.TILED_OUTPUT_HEIGHT)
         tiler.set_property("gpu_id", 0)
 
-
-        # Use convertor to convert from NV12 to RGBA as required by nvosd
+        # Convert from NV12 to RGBA as required by nvosd
         self.print_debug("Creating nvvidconv \n ")
         nvvideoconvert = Gst.ElementFactory.make("nvvideoconvert", "convertor")
         if not nvvideoconvert:
@@ -604,7 +662,7 @@ class DeepStreamInference(threading.Thread):
             return
         nvvideoconvert.set_property("gpu_id", 0)
 
-        # NVOsd
+        # NVOsd - Configure nvidia onscreen display
         self.print_debug("Creating nvosd \n ")
         nvosd = Gst.ElementFactory.make("nvdsosd", "onscreendisplay")
         if not nvosd:
@@ -623,11 +681,16 @@ class DeepStreamInference(threading.Thread):
         caps = Gst.ElementFactory.make("capsfilter", "filter")
         caps.set_property("caps", Gst.Caps.from_string("video/x-raw(memory:NVMM), format=I420"))
         
+        caps_split = Gst.ElementFactory.make("capsfilter", "filter2")
+        caps_split.set_property("caps", Gst.Caps.from_string("video/x-raw, format=I420"))
+
         #Local file encoder
-        encoder_mp4 = Gst.ElementFactory.make("nvv4l2h264enc", "encoder2")
-        if is_aarch64():
-            encoder_mp4.set_property('preset-level', 1)
-            encoder_mp4.set_property('bufapi-version', 1)
+        encoder_mp4 = Gst.ElementFactory.make("x264enc", "encoder2")
+        encoder_mp4.set_property('bitrate', self.out_rtsp_bitrate)
+        #if is_aarch64():
+            #encoder_mp4.set_property('preset-level', 1)
+            #encoder_mp4.set_property('bufapi-version', 1)
+
         # build stream encoder
         if self.out_rtsp_codec == "VP9":
             encoder = Gst.ElementFactory.make("nvv4l2vp9enc", "encoder")
@@ -692,66 +755,83 @@ class DeepStreamInference(threading.Thread):
                 sink.set_property("gpu_id", 0)
         
         #Local File sink
-        filesink = Gst.ElementFactory.make("filesink", "fsink")
-        filesink.set_property("sync", 1)
-        filesink.set_property("async", 0)
-        if not sink:
-            self.print_debug(" Unable to create file sink \n")
-        #filesink = Gst.ElementFactory.make("splitmuxsink", "splitmuxsink")
-        #filesink.set_property("location", "./%02d.mp4")
-        #filesink.set_property("max-size-time", 5000000000)
+        split_sink = True
+        if split_sink:
+            filesink = Gst.ElementFactory.make("splitmuxsink", "splitmuxsink")
+            filesink.set_property('muxer', Gst.ElementFactory.make('qtmux'))
+            #filesink.set_property('muxer', Gst.ElementFactory.make('matroskamux'))
+            filesink.set_property("location", "./%02d.mp4")
+            filesink.set_property("max-size-time", 5000000000)  #5 seconds segments
+            filesink.set_property('async-handling', False)
+        else:
+            filesink = Gst.ElementFactory.make("filesink", "fsink")
+            filesink.set_property("location", "./test_sink.mp4")
+            filesink.set_property("sync", 1)
+            filesink.set_property("async", 0)
+            if not sink:
+                self.print_debug(" Unable to create file sink \n")
+
 
         if filesink:
             if(not is_aarch64()):
                 filesink.set_property("gpu_id", 0)
 
 
-
+        #Add elements to pipeline
         self.print_debug("Adding elements to Pipeline")
         if self.use_inference:
             self.pipeline.add(pgie)
+        if self.use_tracker:
+            self.pipeline.add(tracker)
         self.pipeline.add(tiler)
         self.pipeline.add(nvvideoconvert)
         self.pipeline.add(nvosd)
         self.pipeline.add(nvvidconv_postosd)
         self.pipeline.add(caps)
-        #self.pipeline.add(tee)
-        #self.pipeline.add(queue1)
-        #self.pipeline.add(queue2)
+        self.pipeline.add(caps_split)
+        self.pipeline.add(tee)
+        self.pipeline.add(queue1)
+        self.pipeline.add(queue2)
         self.pipeline.add(encoder)
-        #self.pipeline.add(encoder_mp4)
+        self.pipeline.add(encoder_mp4)
         self.pipeline.add(rtppay)
         self.pipeline.add(sink)
-        #self.pipeline.add(filesink)
+        self.pipeline.add(filesink)
         
+        #Linking Elements in pipeline
         self.print_debug("Linking elements in the Pipeline")
         if self.use_inference:
             self.streammux.link(pgie)
-            pgie.link(tiler)
+            if self.use_tracker:
+                pgie.link(tracker)
+                tracker.link(tiler)
+            else:
+                pgie.link(tiler)
         else:
             self.streammux.link(tiler)
         tiler.link(nvvideoconvert)
         nvvideoconvert.link(nvosd)
         nvosd.link(nvvidconv_postosd)
-        nvvidconv_postosd.link(caps)
+        nvvidconv_postosd.link(tee)
+        tee.link(queue1)
+        tee.link(queue2)
+
+        #RSTP Stream
+        queue1.link(caps)
         caps.link(encoder)
-        #tee.link(queue1)
-        #tee.link(queue2)
-        #queue1.link(encoder)
         encoder.link(rtppay)
         rtppay.link(sink)
-        #queue2.link(encoder_mp4)
-        #encoder_mp4.link(filesink)
-        #nvvidconv_postosd.link(caps)
-        #caps.link(encoder)
-        #encoder.link(rtppay)
-        #rtppay.link(sink)
-
+    
+        #Local filesink
+        queue2.link(encoder_mp4)
+        encoder_mp4.link(filesink)
+  
         # create an event loop and feed gstreamer bus mesages to it
         loop = GObject.MainLoop()
         bus = self.pipeline.get_bus()
-        bus.add_signal_watch()
+        bus.add_signal_watch() #Read messages from gstreamer bus
         bus.connect("message", self.bus_call, loop)
+
 
         # Create stream with user and password and start streaming
         rtsp_port_num = 554
@@ -780,7 +860,9 @@ class DeepStreamInference(threading.Thread):
         
         self.pipeline.set_state(Gst.State.PAUSED)
 
-        # Tiler sink pad
+        # add probe to get informed of the meta data generated, we add probe to
+        # the sink pad of the tiler element, since by that time, the buffer would have
+        # had got all the metadata.
         tiler_sink_pad = tiler.get_static_pad("sink")
         if not tiler_sink_pad:
             self.print_debug("Unable to get src pad")

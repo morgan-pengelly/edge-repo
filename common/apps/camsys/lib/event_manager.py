@@ -18,7 +18,7 @@ class EventManager(threading.Thread):
 
     # signaled to stop deepstream engine, terminates with bStop
     def stop(self):
-        self.logger.info("signal to stop edge manager")
+        self.logger.info("signal to stop from edge manager")
         self.bStop = True
         
     def run_edge_manager(self):
