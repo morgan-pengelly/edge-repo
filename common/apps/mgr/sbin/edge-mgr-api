@@ -101,6 +101,8 @@ StartAll()
   $BASEDIR/camsys/bin/run.sh -d >> $LOGFILE 2>&1
   LogIt "Starting edge-webstream"
   $BASEDIR/webstream/bin/run.sh -d >> $LOGFILE 2>&1
+  LogIt "Starting ml-client"
+  $BASEDIR/ml-client/core/bin/run.sh -d >> $LOGFILE 2>&1
   LogIt "End of StartAll"
 }
 
@@ -110,6 +112,8 @@ StopAll()
   LogIt "Running StoptAll"
   LogIt "Stopping docker edge-gg"
   docker stop edge-gg >> $LOGFILE 2>&1
+  LogIt "Stopping docker ml-client"
+  docker stop ml-client >> $LOGFILE 2>&1
   LogIt "Stopping docker edge-webstream"
   docker stop edge-webstream >> $LOGFILE 2>&1
   LogIt "Stopping docker edge-camsys"

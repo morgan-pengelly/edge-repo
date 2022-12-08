@@ -1,0 +1,7 @@
+requests
+fastapi[all]
+azure-storage-blob
+watchdog
+speedtest-cli
+apscheduler
+ffmpeg-python

@@ -1,0 +1,14 @@
+---
+system:
+
+    # Dry-run mode on start
+    # Default: last
+    # Valid values: yes, no, last
+    # dry_run_start_mode: last
+    dry_run_start_mode: last
+
+    # Debug mode on start
+    # Default: last
+    # Valid values: yes, no, last
+    debug_start_mode: last
+
