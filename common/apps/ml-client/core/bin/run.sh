@@ -32,8 +32,8 @@ cd ../../
 echo "$PWD/data"
 echo "$DATADIR"
 docker run \
-	--name ml-client \
-	--net mynet123  \
+	--name $DOCKER_NAME \
+  --hostname $DOCKER_NAME \
 	--ip 172.69.0.22 \
 	-i \
   -v $COREDIR:/home/myuser/app/core \
