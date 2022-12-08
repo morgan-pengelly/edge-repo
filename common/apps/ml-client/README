@@ -1,0 +1,35 @@
+ml-client
+========
+This container is 
+
+*Note: This template is not maintained anymore,
+use the* `tutorial <https://github.com/readthedocs/tutorial-template/>`_ *instead.*
+
+$project will solve your problem of where to start with documentation,
+by providing a basic explanation of how to do it easily.
+
+Look how easy it is to use:
+
+    navigate to core/bin
+    run rebuild.sh
+
+Features
+--------
+
+- Retrieve configuration files from ml-server
+- upload data files to cloud (currently azure container.)
+
+Anti-Collision Interactions
+--------
+
+Ports Used By Anti-Collison:
+
+    edge-camsys: 554
+    edge-gg: 8883
+    edge-api: 8000
+    edge-redis: 6379
+    edge-nginx: 80
+    ml-client:5605
+
+
+

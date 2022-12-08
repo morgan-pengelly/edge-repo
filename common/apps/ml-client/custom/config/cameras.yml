@@ -1,0 +1,14 @@
+---
+cameras: #make sure naming conventions match with Camera class in models
+    - id: cam1
+      url: rtsp://sonnys:lauderlee2022@10.10.10.200:10554/1
+      description: Camera1
+      directory: ./video/AMC06039475876E9A8/
+      frames-per-day: 200
+    - id: cam2
+      url: rtsp://sonnys:lauderlee2022@10.10.10.200:10554/1
+      description: Camera2
+      directory: ./video/AMC06039475876E9A8/
+      frames-per-day: 200
+file-pref:
+  suffix: .mp4
