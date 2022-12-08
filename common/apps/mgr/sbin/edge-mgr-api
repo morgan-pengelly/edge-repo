@@ -97,12 +97,12 @@ StartAll()
     LogIt "Starting edge-gg"
     $BASEDIR/gg/bin/run.sh -d >> $LOGFILE 2>&1
   fi
+  LogIt "Starting ml-client"
+  $BASEDIR/ml-client/core/bin/run.sh -d >> $LOGFILE 2>&1
   LogIt "Starting edge-camsys"
   $BASEDIR/camsys/bin/run.sh -d >> $LOGFILE 2>&1
   LogIt "Starting edge-webstream"
   $BASEDIR/webstream/bin/run.sh -d >> $LOGFILE 2>&1
-  LogIt "Starting ml-client"
-  $BASEDIR/ml-client/core/bin/run.sh -d >> $LOGFILE 2>&1
   LogIt "End of StartAll"
 }
 
