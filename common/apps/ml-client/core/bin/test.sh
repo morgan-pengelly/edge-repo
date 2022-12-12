@@ -1,0 +1,1 @@
+docker ps -q --filter "name=ml-client" | grep -q . && echo Found || echo Not Found

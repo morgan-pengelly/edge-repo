@@ -1,8 +1,11 @@
 cd ../../
-docker stop ml-client
-docker rm ml-client
-docker network create --subnet=172.69.0.0/16 mynet123
-docker build -t ml_client:anti_collision -t ml_client:latest .
+DOCKER_NAME="ml-client"
+#Remove existing contaier if it exists.
+docker ps -qa --filter "name=$DOCKER_NAME" | grep -q . && echo "Container already exists, stopping and removing..."
+docker ps -qa --filter "name=$DOCKER_NAME" | grep -q . && docker stop $DOCKER_NAME > /dev/null && docker rm -fv $DOCKER_NAME > /dev/null
+#Build container and tage anti-collison and latest.
+echo "Building Container..."
+docker build -qt ml_client:anti_collision -t ml_client:latest . 
 cd core/bin
 bash run.sh
 # docker run \

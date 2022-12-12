@@ -19,7 +19,7 @@ router = APIRouter(prefix="/upload")
 logger = util.log.setup_logger(__name__, client_config["api-log"])
 change_list_lock = threading.Lock()
 fileMonitor = filemonitor.FileMonitor(change_list_lock)
-database = Database("./data/upload.sqlite")
+database = Database("./data/local_db.sqlite")
 database.create_upload_table()
 
 

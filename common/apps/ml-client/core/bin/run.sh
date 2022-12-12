@@ -29,8 +29,6 @@ else
 fi
 
 cd ../../
-echo "$PWD/data"
-echo "$DATADIR"
 docker run \
 	--name $DOCKER_NAME \
   --hostname $DOCKER_NAME \

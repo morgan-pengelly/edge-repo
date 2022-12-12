@@ -15,26 +15,23 @@ class Database(object):
 
         self.path = path
         try:
-            sqlite3.connect(self.path)
-            logger.info("Connection to SQLite DB %s successful.", self.path)
+            self.connection = sqlite3.connect(self.path)
+            # logger.info("Connection to SQLite DB %s successful.", self.path)
         except Error as excp:
-            logger.exception("Error Occured: %s", excp)
+            logger.exception("Error Occured connecting to %s: %s", path, excp)
 
     def execute_query(self, query):
         """Execute Query on table."""
-        connection = sqlite3.connect(self.path)
-        cursor = connection.cursor()
+        cursor = self.connection.cursor()
         try:
             cursor.execute(query)
-            connection.commit()
+            self.connection.commit()
         except Error as excp:
             logger.exception("Error Occured: %s", excp)
 
     def execute_read_query(self, query):
         """Execute read query on table."""
-        # Re
-        connection = sqlite3.connect(self.path)
-        cursor = connection.cursor()
+        cursor = self.connection.cursor()
         result = None
         try:
             cursor.execute(query)
@@ -44,7 +41,23 @@ class Database(object):
             logger.exception("Error Occured: %s", excp)
             return None
 
+    def table_exists(self, table_name: str):
+        cursor = self.connection.cursor()
+        result = None
+        # Check if the table exists
+        # Execute the query to check if the table exists
+        cursor.execute(
+            f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+        )
+        result = cursor.fetchall()
+        if result:
+            return True
+        else:
+            return False
+
     def create_upload_table(self):
+        if self.table_exists("files"):
+            return
         """Create Table for tracking file paths and accessed dates."""
         create_files_table = """
         CREATE TABLE IF NOT EXISTS files (
@@ -57,8 +70,10 @@ class Database(object):
         self.execute_query(create_files_table)
 
     def create_config_table(self):
+        if self.table_exists("configs"):
+            return
         """Create Table for tracking file paths and accessed dates."""
-        create_files_table = """
+        create_configs_table = """
         CREATE TABLE configs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         key TEXT NOT NULL,
@@ -67,7 +82,7 @@ class Database(object):
         );
         """
         # TODO Handle already exists exception to not polut log.
-        self.execute_query(create_files_table)
+        self.execute_query(create_configs_table)
 
     def add_data_file(self, path):
         """Add a file to database as processed."""
@@ -179,7 +194,7 @@ class Database(object):
 
 
 if __name__ == "__main__":
-    database = Database("data/upload.sqlite")
+    database = Database("data/local_db.sqlite")
     database.create_upload_table()
     database.add_data_file("test123")
     database.remove_dead_links()

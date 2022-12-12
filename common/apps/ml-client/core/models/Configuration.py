@@ -22,7 +22,8 @@ class Configuration(object):
         for key, value in self.files.items():
             # Only import YML files.
             if pathlib.Path(value).suffix == ".yml":
-                self.data[key] = util.config.load_yaml(value)
+                # Merge Yaml contents into data dictionary
+                self.data.update(util.config.load_yaml(value))
             else:
                 print(f"Ommited {key} while loading")
 
