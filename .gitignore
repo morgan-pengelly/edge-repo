@@ -11,10 +11,9 @@ __pycache__/
 common/apps/ml-client/data/**/**.log
 common/apps/ml-client/data/**/**.idx
 common/apps/ml-client/data/**/**.mp4
-
+**/fastapi/data/
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
