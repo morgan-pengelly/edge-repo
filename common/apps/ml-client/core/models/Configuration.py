@@ -11,12 +11,13 @@ class Configuration(object):
         self.data: dict = None
 
     def load(self):
-        """Load all config files in custom/config"""
+        """Load all config files in config"""
         self.files = {}
-        for root, _dirs, files in os.walk("custom/config"):
+        for root, _dirs, files in os.walk("config/"):
             for file in files:
                 full_path = os.path.join(root, file)
                 self.files[pathlib.Path(full_path).stem] = full_path
+                print(full_path)
 
         self.data = {}
         for key, value in self.files.items():

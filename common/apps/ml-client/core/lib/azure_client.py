@@ -13,7 +13,7 @@ def get_connection_string():
     """Get connection string from local azureSecrets.yml."""
     try:
         if manual:
-            with open("custom/clientConfig.yml", "r") as file:
+            with open("config/clientConfig.yml", "r") as file:
                 config = yaml.safe_load(file)
             return config["connection-string"]
     except Exception as excp:

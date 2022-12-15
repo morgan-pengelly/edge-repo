@@ -63,7 +63,7 @@ def update_config_file(file_name: str):
     except TypeError:
         logger.warning("Config update failed, using local files.")
         return
-    path = f"custom/config/{file_name}"
+    path = f"config/{file_name}"
     print(blob_url)
     blob_client = BlobClient.from_blob_url(blob_url)
     with open(path, "wb") as my_blob:

@@ -23,7 +23,6 @@
 ./data/upload/logs/scheduler/scheduler.log.2022-12-02
 ./data/upload/logs/scheduler/scheduler.log.2022-12-06
 ./data/upload/logs/fileMonitor/fileMonitor.log.2022-12-06
-./data/upload/logs/fileMonitor/fileMonitor.log
 ./data/upload/logs/api/api.log.2022-12-06
 ./data/upload/events/.config
 ./data/upload/logs/util/.config
@@ -41,4 +40,9 @@
 ./data/upload/logs/util/util2022-12-09.log
 ./data/upload/logs/util/util.log
 ./data/upload/logs/scheduler/scheduler2022-12-09.log
+./data/upload/logs/scheduler/scheduler2022-12-12.log
+./data/upload/logs/fileMonitor/fileMonitor2022-12-12.log
+./data/upload/logs/scheduler/scheduler2022-12-13.log
 ./data/upload/logs/scheduler/scheduler.log
+./data/upload/logs/fileMonitor/fileMonitor2022-12-13.log
+./data/upload/logs/fileMonitor/fileMonitor.log

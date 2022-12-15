@@ -73,4 +73,4 @@ def load_cameras(path: str):
 
 
 def get_file_path(file_name: str):
-    return f"custom/config/{file_name}"
+    return f"config/{file_name}"

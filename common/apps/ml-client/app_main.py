@@ -71,13 +71,13 @@ def ping_server():
         return "error"
 
 
-@app.get("/config/camsys/lastmodified")
-def send_config():
-    """Sends camsys config's last modified time."""
-    mtime = datetime.datetime.fromtimestamp(
-        os.path.getmtime("custom/camsys.yml"), datetime.timezone.utc
-    )
-    return f"{mtime} UTC"
+# @app.get("/config/camsys/lastmodified")
+# def send_config():
+#     """Sends camsys config's last modified time."""
+#     mtime = datetime.datetime.fromtimestamp(
+#         os.path.getmtime("custo/mcamsys.yml"), datetime.timezone.utc
+#     )
+#     return f"{mtime} UTC"
 
 
 if __name__ == "__main__":

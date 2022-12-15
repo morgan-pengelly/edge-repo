@@ -4,7 +4,7 @@ import yaml
 
 def load_client_config():
     """Loads custom/clientConfig.yml"""
-    with open("custom/config/mlclient.yml", "r") as stream:
+    with open("config/mlclient.yml", "r") as stream:
         client_config = yaml.safe_load(stream)
         return client_config
 
