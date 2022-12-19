@@ -32,7 +32,7 @@ cd ../../
 docker run \
 	--name $DOCKER_NAME \
   --hostname $DOCKER_NAME \
-	--ip 172.69.0.22 \
+  --add-host jetson:172.17.0.1 \
 	-i \
   -v $COREDIR:/home/myuser/app/core \
   -v $CUSTOMDIR:/home/myuser/app/custom \

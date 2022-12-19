@@ -5,7 +5,7 @@ from urllib import response
 
 # import speedtest
 import requests
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, Response
 from custom.routers import update
 from custom.routers import upload
 from custom.routers import schedule
@@ -57,7 +57,7 @@ def info():
 
 
 @app.get("/testserver", tags=["server"])
-def ping_server():
+def ping_server(response: Response):
     """Simple method to test server connectivity."""
     try:
         headers = {"accept": "application/json"}
@@ -65,9 +65,13 @@ def ping_server():
             util.client.get_server_address() + ":8080/info", headers=headers, timeout=5
         )  # Currently hardcoded for WSL Test Enviornment
         return req.content
+    except requests.exceptions.ConnectTimeout:
+        logger.exception("exception")
+        response.status_code = status.HTTP_408_REQUEST_TIMEOUT
+        return "error"
     except ConnectionRefusedError:
         logger.exception("exception")
-        response.status_code = status.HTTP_404_NOT_FOUND
+        response.status_code = status.HTTP_403_FORBIDDEN
         return "error"
 
 

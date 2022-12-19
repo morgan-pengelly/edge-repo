@@ -12,7 +12,7 @@ logger = setup_logger(__name__, client_config["util-log"])
 def get_server_address():
     """Returns the server address with http:// prefix but does not include port."""
     if client_config["local-test"]:
-        ip = "172.69.0.1"
+        ip = "host.docker.internal"
         return f"http://{ip}"
     return ""
 

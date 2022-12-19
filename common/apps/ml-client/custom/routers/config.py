@@ -72,7 +72,7 @@ async def reload_configuration():
 async def return_config(config_id: str, response: Response):
     """Uses configuration's loaded files to return any config file it has loaded."""
     try:
-        return config.data[config_id]
+        return ApiResponse(config.data[config_id])
     except:
         response.status_code = status.HTTP_404_NOT_FOUND
         return None

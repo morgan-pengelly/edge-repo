@@ -21,6 +21,7 @@ docker run \
 	-t $MODE \
 	--name edge-api \
 	--link edge-redis \
+	--net="host" \
 	--hostname edge-api \
 	--add-host jetson:172.17.0.1 \
 	-v $CONFIGDIR:/app/app \
